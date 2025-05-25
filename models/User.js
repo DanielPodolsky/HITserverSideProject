@@ -16,12 +16,12 @@ const userSchema = new mongoose.Schema({
     },
     birthday: {
         type: Date,
-        required: true
+
     },
     marital_status: {
         type: String,
-        required: true
+
     }
-}, {versionKey: false});
+}, { versionKey: false });
 
 export default mongoose.model('User', userSchema);

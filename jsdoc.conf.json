@@ -1,0 +1,25 @@
+{
+    "source": {
+        "include": [
+            "./routes/",
+            "./models/",
+            "./README.md"
+        ],
+        "includePattern": "\\.(js|md)$",
+        "exclude": [
+            "node_modules/",
+            "tests/"
+        ]
+    },
+    "opts": {
+        "destination": "./docs/generated/",
+        "recurse": true
+    },
+    "plugins": [
+        "plugins/markdown"
+    ],
+    "templates": {
+        "cleverLinks": false,
+        "monospaceLinks": false
+    }
+}
