@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import Cost from '../models/Cost.js';
+import Report from '../models/Report.js';
 const router = Router();
 
 /**
@@ -76,8 +77,10 @@ router.post('/', async (req, res) => {
  * @throws {400} Month must be between 1 and 12
  * @throws {500} Database or server error
  */
+
 router.get('/', async (req, res) => {
-    // TASK: Get monthly report of costs grouped by category
+    // TASK: Get monthly report of costs grouped by category (with caching via Report model)
+
     try {
         // STEP 1: Extract query parameters
         const { id, year, month } = req.query;
@@ -101,24 +104,41 @@ router.get('/', async (req, res) => {
             return res.status(400).json({ error: 'Month must be between 1 and 12' });
         }
 
-        // STEP 5: Create date range for the query
+        // STEP 5: Check if report already exists in cache
+        const existingReport = await Report.findOne({
+            userid: userID,
+            year: numericYear,
+            month: numericMonth
+        });
+
+        if (existingReport) {
+            // STEP 5a: Return cached report if found
+            return res.status(200).json({
+                userid: userID,
+                year: numericYear,
+                month: numericMonth,
+                costs: existingReport.costs
+            });
+        }
+
+        // STEP 6: Create date range for the query
         const startDate = new Date(numericYear, numericMonth - 1, 1); // First day of the month
         const endDate = new Date(numericYear, numericMonth, 0, 23, 59, 59, 999); // Last day of the month
 
-        // STEP 6: Query the database for costs within the date range and for the specific user
+        // STEP 7: Query the database for costs within the date range and for the specific user
         const costs = await Cost.find({
             userid: userID,
             created_at: { $gte: startDate, $lte: endDate }
         });
 
-        // STEP 7: Group costs by category and calculate total sum for each category
+        // STEP 8: Group costs by category and calculate total sum for each category
         const grouped = {
             food: [],
             health: [],
             housing: [],
             sport: [],
             education: []
-        }
+        };
 
         costs.forEach(cost => {
             const day = new Date(cost.created_at).getDate();
@@ -128,18 +148,30 @@ router.get('/', async (req, res) => {
                 sum: cost.sum,
                 day: day,
                 description: cost.description,
+            };
+
+            if (grouped[cost.category]) {
+                grouped[cost.category].push(costItem);
             }
+        });
 
-            grouped[cost.category].push(costItem);
-        })
+        // STEP 9: Save the newly generated report in the database
+        const newReport = new Report({
+            userid: userID,
+            year: numericYear,
+            month: numericMonth,
+            costs: grouped
+        });
 
-        // STEP 8: Return success response
+        await newReport.save();
+
+        // STEP 10: Return success response
         return res.status(200).json({
             userid: userID,
             year: numericYear,
             month: numericMonth,
             costs: grouped
-        })
+        });
 
     } catch (error) {
         return res.status(500).json({ error: error.message });
